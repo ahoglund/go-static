@@ -1,0 +1,7 @@
+<body>
+
+{{ t:nav }}
+
+{{ content }}
+
+</body>

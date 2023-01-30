@@ -63,22 +63,39 @@ func main() {
 			config["template"] = defaultTemplate
 		}
 
-		templateContent, err := ioutil.ReadFile(templateDir + "/" + config["template"] + ".html.template")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			os.Exit(1)
-		}
-
 		frontMatter := &FrontMatter{
 			title:    config["title"],
 			template: config["template"],
 			content:  markdown.ToHTML([]byte(markdownContent), nil, nil),
 		}
 
-		parsedTemplateContent := parseTemplate(templateContent, frontMatter)
-		fmt.Println(parsedTemplateContent)
+		parsedTemplateContent := parseTemplate(readTemplate(frontMatter.template), frontMatter)
+		fmt.Println(renderTemplate(parsedTemplateContent))
 	}
 
+}
+
+func renderTemplate(content []string) string {
+	finalContent := make([]string, 0)
+
+	for _, line := range content {
+		if line == "" {
+			continue
+		} else {
+			finalContent = append(finalContent, line)
+		}
+	}
+	return strings.Join(finalContent, "\n")
+}
+
+func readTemplate(name string) []byte {
+	templateContent, err := ioutil.ReadFile(templateDir + "/" + name + ".html.template")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	return templateContent
 }
 
 // parseTemplate takes in a template containing {{ }} variable strings and replaces them
@@ -88,40 +105,35 @@ func main() {
 func parseTemplate(templateContent []byte, frontMatter *FrontMatter) []string {
 	parsedTemplateContent := make([]string, 0)
 	for _, line := range strings.Split(string(templateContent), "\n") {
-		r := regexp.MustCompile(`.*{{\s*(.*)\s*}}.*`)
+		r := regexp.MustCompile(`(.*){{\s*([a-zA-Z:]+)\s*}}(.*)`)
 		if r.Match([]byte(line)) {
 			found := r.FindAllStringSubmatch(line, -1)
-			v := strings.Split(found[0][1], ":")
-
 			// I need to not trim space so much!
-			varName := strings.TrimSpace(v[0])
+			beforeContent := found[0][1]
+			varContent := strings.Split(found[0][2], ":")
+			afterContent := found[0][3]
+			varName := varContent[0]
 			switch varName {
 			case "t":
-				// load the template and then add it to the parsedTemplateContent
-				templateName := strings.TrimSpace(v[1])
-				templateContent, err := ioutil.ReadFile(templateDir + "/" + templateName + ".html.template")
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%v\n", err)
-					os.Exit(1)
-				}
-				subTemplateContent := parseTemplate(templateContent, frontMatter)
+				templateName := varContent[1]
+				subTemplateContent := make([]string, 0)
+				subTemplateContent = append(subTemplateContent, beforeContent)
+				subTemplateContent = append(subTemplateContent, parseTemplate(readTemplate(templateName), frontMatter)...)
+				subTemplateContent = append(subTemplateContent, afterContent)
+
 				parsedTemplateContent = append(parsedTemplateContent, subTemplateContent...)
 			case "content":
-				parsedTemplateContent = append(parsedTemplateContent, string(frontMatter.content))
+				parsedTemplateContent = append(parsedTemplateContent, beforeContent+string(frontMatter.content)+afterContent)
 			case "title":
-				parsedTemplateContent = append(parsedTemplateContent, string(frontMatter.title))
+				parsedTemplateContent = append(parsedTemplateContent, beforeContent+string(frontMatter.title)+afterContent)
 			default:
-				fmt.Fprintf(os.Stderr, "Unsupported variable: %s", v[0])
+				fmt.Fprintf(os.Stderr, "Unsupported variable: %s", varName)
 				os.Exit(1)
 			}
 		} else {
 			parsedTemplateContent = append(parsedTemplateContent, line)
 		}
-
-		// if the line contains {{ something }}
-		// then that means it has content to be replaced.
-		// If not, the the line should just be added to the
-		// parsed template output.
+		// parsedTemplateContent = append(parsedTemplateContent, "|---\n")
 	}
 	return parsedTemplateContent
 }

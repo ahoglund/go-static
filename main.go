@@ -17,18 +17,36 @@ type FrontMatter struct {
 	content  []byte
 }
 
-const templateDir = "example/templates"
-const pagesDir = "example/pages"
 const frontMatterDelimiter = "---\n"
 const defaultTemplate = "index"
-const publicDir = "example/public"
+
+type Config struct {
+	templateDir string
+	pagesDir    string
+	publicDir   string
+}
 
 // iterate through every page
 // and write out the html version
 // to the public directory.
 func main() {
+	targetDir := os.Args[1]
+
+	if targetDir == "" {
+		fmt.Fprint(os.Stderr, "No target directory provided.")
+		os.Exit(1)
+	}
+
+	// strip trailing slash from target Dir
+	targetDir = strings.TrimSuffix(targetDir, "/")
+	config := &Config{
+		templateDir: targetDir + "/templates",
+		pagesDir:    targetDir + "/pages",
+		publicDir:   targetDir + "/public",
+	}
+
 	// Get all .md files in pagesDir
-	err := filepath.WalkDir(pagesDir, func(path string, info fs.DirEntry, err error) error {
+	err := filepath.WalkDir(config.pagesDir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -37,7 +55,7 @@ func main() {
 			return nil
 		}
 
-		dealWithTemplate(path)
+		processTemplate(path, config)
 		return nil
 	})
 	if err != nil {
@@ -46,7 +64,7 @@ func main() {
 	}
 }
 
-func dealWithTemplate(file string) {
+func processTemplate(file string, config *Config) {
 	content, err := os.ReadFile(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -63,44 +81,44 @@ func dealWithTemplate(file string) {
 
 	// TODO: Need to ignore comments in front matter.
 
-	config := make(map[string]string)
+	frontmatter := make(map[string]string)
 
 	for _, line := range strings.Split((rawFrontMatter), "\n") {
 		if line == "" {
 			continue
 		}
 		d := strings.Split(line, ":")
-		config[strings.TrimSpace(d[0])] = strings.TrimSpace(d[1])
+		frontmatter[strings.TrimSpace(d[0])] = strings.TrimSpace(d[1])
 	}
 
 	// If template is not set, then default to index
-	if config["template"] == "" {
-		config["template"] = defaultTemplate
+	if frontmatter["template"] == "" {
+		frontmatter["template"] = defaultTemplate
 	}
 
 	frontMatter := &FrontMatter{
-		title:    config["title"],
-		template: config["template"],
+		title:    frontmatter["title"],
+		template: config.templateDir + "/" + frontmatter["template"],
 		content:  markdown.ToHTML([]byte(markdownContent), nil, nil),
 	}
 
-	fileName := strings.ReplaceAll(file, pagesDir, "")
+	fileName := strings.ReplaceAll(file, config.pagesDir, "")
 	fileName = strings.ReplaceAll(fileName, ".md", "")
-	parsedTemplateContent := parseTemplate(readTemplate(frontMatter.template), frontMatter)
-	err = writeTemplate(fileName, renderTemplate(parsedTemplateContent))
+	parsedTemplateContent := parseTemplate(readTemplate(frontMatter.template), frontMatter, config)
+	err = writeTemplate(fileName, renderTemplate(parsedTemplateContent), config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-func writeTemplate(name string, content []string) error {
-	err := os.MkdirAll(publicDir+"/"+filepath.Dir(name), os.ModePerm)
+func writeTemplate(name string, content []string, config *Config) error {
+	err := os.MkdirAll(config.publicDir+"/"+filepath.Dir(name), os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	file, err := os.Create(publicDir + "/" + name + ".html")
+	file, err := os.Create(config.publicDir + "/" + name + ".html")
 	if err != nil {
 		return err
 	}
@@ -132,7 +150,7 @@ func renderTemplate(content []string) []string {
 }
 
 func readTemplate(name string) []byte {
-	templateContent, err := os.ReadFile(templateDir + "/" + name + ".html.template")
+	templateContent, err := os.ReadFile(name + ".html.template")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -145,7 +163,7 @@ func readTemplate(name string) []byte {
 // with either the templates refered to (by t:<string>) in the config map.
 // content is a special variable.
 // title is a special variable.
-func parseTemplate(templateContent []byte, frontMatter *FrontMatter) []string {
+func parseTemplate(templateContent []byte, frontMatter *FrontMatter, config *Config) []string {
 	parsedTemplateContent := make([]string, 0)
 	for _, line := range strings.Split(string(templateContent), "\n") {
 		r := regexp.MustCompile(`(.*){{\s*([a-zA-Z:]+)\s*}}(.*)`)
@@ -158,10 +176,10 @@ func parseTemplate(templateContent []byte, frontMatter *FrontMatter) []string {
 			varName := varContent[0]
 			switch varName {
 			case "t":
-				templateName := varContent[1]
+				templateName := config.templateDir + "/" + varContent[1]
 				subTemplateContent := make([]string, 0)
 				subTemplateContent = append(subTemplateContent, beforeContent)
-				subTemplateContent = append(subTemplateContent, parseTemplate(readTemplate(templateName), frontMatter)...)
+				subTemplateContent = append(subTemplateContent, parseTemplate(readTemplate(templateName), frontMatter, config)...)
 				subTemplateContent = append(subTemplateContent, afterContent)
 
 				parsedTemplateContent = append(parsedTemplateContent, subTemplateContent...)

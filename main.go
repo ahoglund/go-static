@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -20,62 +21,103 @@ const templateDir = "example/templates"
 const pagesDir = "example/pages"
 const frontMatterDelimiter = "---\n"
 const defaultTemplate = "index"
+const publicDir = "example/public"
 
 // iterate through every page
 // and write out the html version
 // to the public directory.
 func main() {
 	// Get all .md files in pagesDir
-	dirs, err := ioutil.ReadDir(pagesDir)
+	err := filepath.WalkDir(pagesDir, func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		dealWithTemplate(path)
+		return nil
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+}
+
+func dealWithTemplate(file string) {
+	content, err := os.ReadFile(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
-	for _, file := range dirs {
-		content, err := ioutil.ReadFile(pagesDir + "/" + file.Name())
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			os.Exit(1)
-		}
-
-		data := make([]string, 0)
-		for _, line := range strings.Split(string(content), frontMatterDelimiter) {
-			data = append(data, line)
-		}
-
-		rawFrontMatter := data[1]
-		markdownContent := data[2]
-		// Need to ignore comments in front matter.
-
-		config := make(map[string]string)
-
-		for _, line := range strings.Split((rawFrontMatter), "\n") {
-			if line == "" {
-				continue
-			}
-			d := strings.Split(line, ":")
-			config[strings.TrimSpace(d[0])] = strings.TrimSpace(d[1])
-		}
-
-		// If template is not set, then default to index
-		if config["template"] == "" {
-			config["template"] = defaultTemplate
-		}
-
-		frontMatter := &FrontMatter{
-			title:    config["title"],
-			template: config["template"],
-			content:  markdown.ToHTML([]byte(markdownContent), nil, nil),
-		}
-
-		parsedTemplateContent := parseTemplate(readTemplate(frontMatter.template), frontMatter)
-		fmt.Println(renderTemplate(parsedTemplateContent))
+	data := make([]string, 0)
+	for _, line := range strings.Split(string(content), frontMatterDelimiter) {
+		data = append(data, line)
 	}
 
+	rawFrontMatter := data[1]
+	markdownContent := data[2]
+
+	// TODO: Need to ignore comments in front matter.
+
+	config := make(map[string]string)
+
+	for _, line := range strings.Split((rawFrontMatter), "\n") {
+		if line == "" {
+			continue
+		}
+		d := strings.Split(line, ":")
+		config[strings.TrimSpace(d[0])] = strings.TrimSpace(d[1])
+	}
+
+	// If template is not set, then default to index
+	if config["template"] == "" {
+		config["template"] = defaultTemplate
+	}
+
+	frontMatter := &FrontMatter{
+		title:    config["title"],
+		template: config["template"],
+		content:  markdown.ToHTML([]byte(markdownContent), nil, nil),
+	}
+
+	fileName := strings.ReplaceAll(file, pagesDir, "")
+	fileName = strings.ReplaceAll(fileName, ".md", "")
+	parsedTemplateContent := parseTemplate(readTemplate(frontMatter.template), frontMatter)
+	err = writeTemplate(fileName, renderTemplate(parsedTemplateContent))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
 }
 
-func renderTemplate(content []string) string {
+func writeTemplate(name string, content []string) error {
+	err := os.MkdirAll(publicDir+"/"+filepath.Dir(name), os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create(publicDir + "/" + name + ".html")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Write each string to the file
+	for _, line := range content {
+		_, err = file.WriteString(line)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func renderTemplate(content []string) []string {
 	finalContent := make([]string, 0)
 
 	for _, line := range content {
@@ -84,12 +126,13 @@ func renderTemplate(content []string) string {
 		} else {
 			finalContent = append(finalContent, line)
 		}
+		finalContent = append(finalContent, "\n")
 	}
-	return strings.Join(finalContent, "\n")
+	return finalContent
 }
 
 func readTemplate(name string) []byte {
-	templateContent, err := ioutil.ReadFile(templateDir + "/" + name + ".html.template")
+	templateContent, err := os.ReadFile(templateDir + "/" + name + ".html.template")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -133,7 +176,6 @@ func parseTemplate(templateContent []byte, frontMatter *FrontMatter) []string {
 		} else {
 			parsedTemplateContent = append(parsedTemplateContent, line)
 		}
-		// parsedTemplateContent = append(parsedTemplateContent, "|---\n")
 	}
 	return parsedTemplateContent
 }

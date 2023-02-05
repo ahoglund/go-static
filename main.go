@@ -1,20 +1,23 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"text/template"
 
 	"github.com/gomarkdown/markdown"
+	"gopkg.in/yaml.v3"
 )
 
 type FrontMatter struct {
 	title    string
 	template string
-	content  []byte
+	content  *bytes.Buffer
 }
 
 const frontMatterDelimiter = "---\n"
@@ -77,7 +80,7 @@ func processTemplate(file string, config *Config) {
 	}
 
 	rawFrontMatter := data[1]
-	markdownContent := data[2]
+	rawContent := data[2]
 
 	// TODO: Need to ignore comments in front matter.
 
@@ -96,14 +99,34 @@ func processTemplate(file string, config *Config) {
 		frontmatter["template"] = defaultTemplate
 	}
 
+	// detect file type. process accordingly.
+	var parsedContent bytes.Buffer
+	switch filepath.Ext(file) {
+	case ".html":
+		fmt.Fprint(&parsedContent, rawContent)
+	case ".md":
+		fmt.Fprint(&parsedContent, string(markdown.ToHTML([]byte(rawContent), nil, nil)))
+	case ".tmpl":
+		parsedTemplate, _ := template.New("foo").Parse(string(rawContent[:]))
+		var m map[interface{}]interface{}
+		err := yaml.Unmarshal([]byte(rawFrontMatter), &m)
+		if err != nil {
+			fmt.Printf("Error parsing YAML: %v", err)
+			return
+		}
+
+		parsedTemplate.Execute(&parsedContent, m)
+	default:
+
+	}
+
 	frontMatter := &FrontMatter{
 		title:    frontmatter["title"],
 		template: config.templateDir + "/" + frontmatter["template"],
-		content:  markdown.ToHTML([]byte(markdownContent), nil, nil),
+		content:  &parsedContent,
 	}
 
 	fileName := strings.ReplaceAll(file, config.pagesDir, "")
-	fileName = strings.ReplaceAll(fileName, ".md", "")
 	parsedTemplateContent := parseTemplate(readTemplate(frontMatter.template), frontMatter, config)
 	err = writeTemplate(fileName, renderTemplate(parsedTemplateContent), config)
 	if err != nil {
@@ -118,7 +141,8 @@ func writeTemplate(name string, content []string, config *Config) error {
 		return err
 	}
 
-	file, err := os.Create(config.publicDir + "/" + name + ".html")
+	newFileName := strings.Replace(name, filepath.Ext(name), ".html", 1)
+	file, err := os.Create(config.publicDir + "/" + newFileName)
 	if err != nil {
 		return err
 	}
@@ -184,7 +208,7 @@ func parseTemplate(templateContent []byte, frontMatter *FrontMatter, config *Con
 
 				parsedTemplateContent = append(parsedTemplateContent, subTemplateContent...)
 			case "content":
-				parsedTemplateContent = append(parsedTemplateContent, beforeContent+string(frontMatter.content)+afterContent)
+				parsedTemplateContent = append(parsedTemplateContent, beforeContent+string(frontMatter.content.Bytes())+afterContent)
 			case "title":
 				parsedTemplateContent = append(parsedTemplateContent, beforeContent+string(frontMatter.title)+afterContent)
 			default:

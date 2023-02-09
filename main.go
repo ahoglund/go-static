@@ -82,22 +82,17 @@ func processTemplate(file string, config *Config) {
 	rawFrontMatter := data[1]
 	rawContent := data[2]
 
-	// TODO: Need to ignore comments in front matter.
-
-	frontmatter := make(map[string]string)
-
-	for _, line := range strings.Split((rawFrontMatter), "\n") {
-		if line == "" {
-			continue
-		}
-		d := strings.Split(line, ":")
-		frontmatter[strings.TrimSpace(d[0])] = strings.TrimSpace(d[1])
+	var y map[interface{}]interface{}
+	err = yaml.Unmarshal([]byte(rawFrontMatter), &y)
+	if err != nil {
+		fmt.Printf("Error parsing YAML in file %s: %v", file, err)
+		return
 	}
 
-	// If template is not set, then default to index
-	if frontmatter["template"] == "" {
-		frontmatter["template"] = defaultTemplate
-	}
+	// // If template is not set, then default to index
+	// if y["template"] == nil {
+	// 	y["template"] = defaultTemplate
+	// }
 
 	// detect file type. process accordingly.
 	var parsedContent bytes.Buffer
@@ -108,21 +103,15 @@ func processTemplate(file string, config *Config) {
 		fmt.Fprint(&parsedContent, string(markdown.ToHTML([]byte(rawContent), nil, nil)))
 	case ".tmpl":
 		parsedTemplate, _ := template.New("foo").Parse(string(rawContent[:]))
-		var m map[interface{}]interface{}
-		err := yaml.Unmarshal([]byte(rawFrontMatter), &m)
-		if err != nil {
-			fmt.Printf("Error parsing YAML: %v", err)
-			return
-		}
-
-		parsedTemplate.Execute(&parsedContent, m)
+		parsedTemplate.Execute(&parsedContent, y)
 	default:
 
 	}
 
 	frontMatter := &FrontMatter{
-		title:    frontmatter["title"],
-		template: config.templateDir + "/" + frontmatter["template"],
+		title: "test",
+		// title:    y["title"].(string),
+		template: config.templateDir + "/" + "index",
 		content:  &parsedContent,
 	}
 

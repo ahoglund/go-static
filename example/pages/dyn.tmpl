@@ -1,6 +1,11 @@
 ---
 title: Dynamic Template
-gwell: a
+gwell:
+  - item 1
+  - item 2
 ---
 
-<p>{{ .gwell }}</p>
+<ul>
+	<li>{{ index .gwell 0 }}</li>
+	<li>{{ index .gwell 1 }}</li>
+</ul>

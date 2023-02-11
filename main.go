@@ -89,10 +89,10 @@ func processTemplate(file string, config *Config) {
 		return
 	}
 
-	// // If template is not set, then default to index
-	// if y["template"] == nil {
-	// 	y["template"] = defaultTemplate
-	// }
+	// If template is not set, then default to index
+	if y["template"] == "" {
+		y["template"] = defaultTemplate
+	}
 
 	// detect file type. process accordingly.
 	var parsedContent bytes.Buffer
@@ -109,9 +109,8 @@ func processTemplate(file string, config *Config) {
 	}
 
 	frontMatter := &FrontMatter{
-		title: "test",
-		// title:    y["title"].(string),
-		template: config.templateDir + "/" + "index",
+		title:    y["title"].(string),
+		template: config.templateDir + "/" + y["template"].(string),
 		content:  &parsedContent,
 	}
 

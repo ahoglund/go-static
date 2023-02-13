@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -27,6 +28,7 @@ type Config struct {
 	templateDir string
 	pagesDir    string
 	publicDir   string
+	assetsDir   string
 }
 
 // iterate through every page
@@ -46,6 +48,7 @@ func main() {
 		templateDir: targetDir + "/templates",
 		pagesDir:    targetDir + "/pages",
 		publicDir:   targetDir + "/public",
+		assetsDir:   targetDir + "/assets",
 	}
 
 	// Get all .md files in pagesDir
@@ -63,6 +66,26 @@ func main() {
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	// move all the assets to the public directory
+	srcDir := config.assetsDir
+	dstDir := config.publicDir
+
+	err = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+
+		relPath, _ := filepath.Rel(srcDir, path)
+		dstPath := filepath.Join(dstDir, relPath)
+
+		return copyFile(path, dstPath)
+	})
+
+	if err != nil {
+		println(err)
 		os.Exit(1)
 	}
 }
@@ -90,11 +113,15 @@ func processTemplate(file string, config *Config) {
 	}
 
 	// If template is not set, then default to index
-	if y["template"] == "" {
+	if _, ok := y["template"]; !ok {
 		y["template"] = defaultTemplate
 	}
 
-	// detect file type. process accordingly.
+	if _, ok := y["title"]; !ok {
+		fmt.Printf("File %s doesn't contain a title:.", file)
+		return
+	}
+
 	var parsedContent bytes.Buffer
 	switch filepath.Ext(file) {
 	case ".html":
@@ -102,8 +129,16 @@ func processTemplate(file string, config *Config) {
 	case ".md":
 		fmt.Fprint(&parsedContent, string(markdown.ToHTML([]byte(rawContent), nil, nil)))
 	case ".tmpl":
-		parsedTemplate, _ := template.New("foo").Parse(string(rawContent[:]))
-		parsedTemplate.Execute(&parsedContent, y)
+		parsedTemplate, err := template.New("foo").Parse(string(rawContent[:]))
+		if err != nil {
+			fmt.Printf("Error parsing template %s: %s", file, err)
+			return
+		}
+		err = parsedTemplate.Execute(&parsedContent, y)
+		if err != nil {
+			fmt.Printf("Error executing template %s: %s", file, err)
+			return
+		}
 	default:
 
 	}
@@ -208,4 +243,25 @@ func parseTemplate(templateContent []byte, frontMatter *FrontMatter, config *Con
 		}
 	}
 	return parsedTemplateContent
+}
+
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

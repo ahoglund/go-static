@@ -175,16 +175,19 @@ func processPage(file string, ts *template.Template, config *Config) {
 
 	y["content"] = parsedPageBuf.String()
 
+	templateData := map[string]string{
+		"title":   y["title"].(string),
+		"content": y["content"].(string),
+	}
+
 	var parsedTemplateBuf bytes.Buffer
-	err = ts.ExecuteTemplate(&parsedTemplateBuf, y["template"].(string), y)
+	err = ts.ExecuteTemplate(&parsedTemplateBuf, y["template"].(string), templateData)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
-	// pages/publications/file.tmpl -> publications/file.tmpl
 	fileName := strings.ReplaceAll(file, config.pagesDir, "")
-	fmt.Println(parsedTemplateBuf.String())
 	err = writeTemplate(fileName, parsedTemplateBuf.String(), config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

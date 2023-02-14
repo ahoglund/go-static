@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"text/template"
 
@@ -18,7 +17,6 @@ import (
 type FrontMatter struct {
 	title    string
 	template string
-	content  *bytes.Buffer
 }
 
 const frontMatterDelimiter = "---\n"
@@ -51,8 +49,26 @@ func main() {
 		assetsDir:   targetDir + "/assets",
 	}
 
+	templateFiles := []string{}
+	err := filepath.WalkDir(config.templateDir, func(path string, info fs.DirEntry, err error) error {
+		if info.IsDir() {
+			// should recurse here
+			return nil
+		}
+
+		templateFiles = append(templateFiles, config.templateDir+"/"+info.Name())
+
+		return nil
+	})
+
+	ts, err := template.ParseFiles(templateFiles...)
+	if err != nil {
+		fmt.Printf("Error parsing template files %v", err)
+		os.Exit(1)
+	}
+
 	// Get all .md files in pagesDir
-	err := filepath.WalkDir(config.pagesDir, func(path string, info fs.DirEntry, err error) error {
+	err = filepath.WalkDir(config.pagesDir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -61,7 +77,7 @@ func main() {
 			return nil
 		}
 
-		processTemplate(path, config)
+		processPage(path, ts, config)
 		return nil
 	})
 	if err != nil {
@@ -70,12 +86,24 @@ func main() {
 	}
 
 	// move all the assets to the public directory
-	srcDir := config.assetsDir
-	dstDir := config.publicDir
+	// srcDir := config.assetsDir
+	// dstDir := config.publicDir
+	//
+	// err = processAssets(srcDir, dstDir)
+	// if err != nil {
+	// 	fmt.Fprintf(os.Stderr, "%v\n", err)
+	// 	os.Exit(1)
+	// }
+}
 
-	err = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+func processAssets(srcDir string, dstDir string) error {
+	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
-			return nil
+			// return nil
+			// err := processAssets(info.Name(), dstDir)
+			// if err != nil {
+			// 	return err
+			// }
 		}
 
 		relPath, _ := filepath.Rel(srcDir, path)
@@ -85,12 +113,13 @@ func main() {
 	})
 
 	if err != nil {
-		println(err)
-		os.Exit(1)
+		return err
 	}
+
+	return nil
 }
 
-func processTemplate(file string, config *Config) {
+func processPage(file string, ts *template.Template, config *Config) {
 	content, err := os.ReadFile(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -118,47 +147,52 @@ func processTemplate(file string, config *Config) {
 	}
 
 	if _, ok := y["title"]; !ok {
-		fmt.Printf("File %s doesn't contain a title:.", file)
+		fmt.Printf("File %s doesn't contain a title: ", file)
 		return
 	}
 
-	var parsedContent bytes.Buffer
+	var parsedPageBuf bytes.Buffer
 	switch filepath.Ext(file) {
 	case ".html":
-		fmt.Fprint(&parsedContent, rawContent)
+		fmt.Fprint(&parsedPageBuf, rawContent)
 	case ".md":
-		fmt.Fprint(&parsedContent, string(markdown.ToHTML([]byte(rawContent), nil, nil)))
+		fmt.Fprint(&parsedPageBuf, string(markdown.ToHTML([]byte(rawContent), nil, nil)))
 	case ".tmpl":
-		parsedTemplate, err := template.New("foo").Parse(string(rawContent[:]))
+		parsedTemplate, err := template.New("page").Parse(string(rawContent[:]))
 		if err != nil {
 			fmt.Printf("Error parsing template %s: %s", file, err)
 			return
 		}
-		err = parsedTemplate.Execute(&parsedContent, y)
+		err = parsedTemplate.Execute(&parsedPageBuf, y)
 		if err != nil {
 			fmt.Printf("Error executing template %s: %s", file, err)
 			return
 		}
 	default:
-
+		fmt.Printf("Unsupported file type")
+		os.Exit(1)
 	}
 
-	frontMatter := &FrontMatter{
-		title:    y["title"].(string),
-		template: config.templateDir + "/" + y["template"].(string),
-		content:  &parsedContent,
+	y["content"] = parsedPageBuf.String()
+
+	var parsedTemplateBuf bytes.Buffer
+	err = ts.ExecuteTemplate(&parsedTemplateBuf, y["template"].(string), y)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 
+	// pages/publications/file.tmpl -> publications/file.tmpl
 	fileName := strings.ReplaceAll(file, config.pagesDir, "")
-	parsedTemplateContent := parseTemplate(readTemplate(frontMatter.template), frontMatter, config)
-	err = writeTemplate(fileName, renderTemplate(parsedTemplateContent), config)
+	fmt.Println(parsedTemplateBuf.String())
+	err = writeTemplate(fileName, parsedTemplateBuf.String(), config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-func writeTemplate(name string, content []string, config *Config) error {
+func writeTemplate(name string, content string, config *Config) error {
 	err := os.MkdirAll(config.publicDir+"/"+filepath.Dir(name), os.ModePerm)
 	if err != nil {
 		return err
@@ -171,78 +205,22 @@ func writeTemplate(name string, content []string, config *Config) error {
 	}
 	defer file.Close()
 
-	// Write each string to the file
-	for _, line := range content {
-		_, err = file.WriteString(line)
-		if err != nil {
-			return err
-		}
+	_, err = file.WriteString(content)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func renderTemplate(content []string) []string {
-	finalContent := make([]string, 0)
-
-	for _, line := range content {
-		if line == "" {
-			continue
-		} else {
-			finalContent = append(finalContent, line)
-		}
-		finalContent = append(finalContent, "\n")
-	}
-	return finalContent
-}
-
-func readTemplate(name string) []byte {
-	templateContent, err := os.ReadFile(name + ".html.template")
+func readTemplate(name string) string {
+	templateContent, err := os.ReadFile(name + ".tmpl")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
-	return templateContent
-}
-
-// parseTemplate takes in a template containing {{ }} variable strings and replaces them
-// with either the templates refered to (by t:<string>) in the config map.
-// content is a special variable.
-// title is a special variable.
-func parseTemplate(templateContent []byte, frontMatter *FrontMatter, config *Config) []string {
-	parsedTemplateContent := make([]string, 0)
-	for _, line := range strings.Split(string(templateContent), "\n") {
-		r := regexp.MustCompile(`(.*){{\s*([a-zA-Z:]+)\s*}}(.*)`)
-		if r.Match([]byte(line)) {
-			found := r.FindAllStringSubmatch(line, -1)
-			// I need to not trim space so much!
-			beforeContent := found[0][1]
-			varContent := strings.Split(found[0][2], ":")
-			afterContent := found[0][3]
-			varName := varContent[0]
-			switch varName {
-			case "t":
-				templateName := config.templateDir + "/" + varContent[1]
-				subTemplateContent := make([]string, 0)
-				subTemplateContent = append(subTemplateContent, beforeContent)
-				subTemplateContent = append(subTemplateContent, parseTemplate(readTemplate(templateName), frontMatter, config)...)
-				subTemplateContent = append(subTemplateContent, afterContent)
-
-				parsedTemplateContent = append(parsedTemplateContent, subTemplateContent...)
-			case "content":
-				parsedTemplateContent = append(parsedTemplateContent, beforeContent+string(frontMatter.content.Bytes())+afterContent)
-			case "title":
-				parsedTemplateContent = append(parsedTemplateContent, beforeContent+string(frontMatter.title)+afterContent)
-			default:
-				fmt.Fprintf(os.Stderr, "Unsupported variable: %s", varName)
-				os.Exit(1)
-			}
-		} else {
-			parsedTemplateContent = append(parsedTemplateContent, line)
-		}
-	}
-	return parsedTemplateContent
+	return string(templateContent)
 }
 
 func copyFile(src, dst string) error {

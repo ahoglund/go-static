@@ -1,4 +1,0 @@
-{{ t:header  }}
-{{ t:nav     }}
-{{ t:content }}
-{{ t:footer  }}

@@ -158,7 +158,7 @@ func processPage(file string, ts *template.Template, config *Config) {
 	case ".md":
 		fmt.Fprint(&parsedPageBuf, string(markdown.ToHTML([]byte(rawContent), nil, nil)))
 	case ".tmpl":
-		parsedTemplate, err := template.New("page").Parse(string(rawContent[:]))
+		parsedTemplate, err := template.New(file).Parse(string(rawContent[:]))
 		if err != nil {
 			fmt.Printf("Error parsing template %s: %s", file, err)
 			return

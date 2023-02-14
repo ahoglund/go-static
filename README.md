@@ -18,11 +18,11 @@ Give the following file structure:
 │       ├── reviews-01.md
 │       └── reviews-02.md
 └── templates
-    ├── content.html.template
-    ├── footer.html.template
-    ├── header.html.template
-    ├── index.html.template
-    └── nav.html.template
+    ├── content.tmpl
+    ├── footer.tmpl
+    ├── header.tmpl
+    ├── index.tmpl
+    └── nav.tmpl
 ```
 
 go-static will write out files to the `public` folder in the same directory as follows:
@@ -61,13 +61,15 @@ This is just a basic markdown with [frontmatter](https://markdoc.dev/docs/frontm
 Lets take a look at a template file:
 
 ```
-{{ t:header  }}
-{{ t:nav     }}
-{{ t:content }}
-{{ t:footer  }}
+{{ define "index" }}
+{{ template "header" . }}
+{{ template "nav" . }}
+{{ template "content" . }}
+{{ template "footer" . }}
+{{ end }}
 ```
 
-The `t:` denotes that this `{{ }}` section should replaced with a template with the name on the right side of the `:`. In the first line we see it should render the `header` template.
+The `template` denotes that this `{{ }}` section should replaced with a template with the name on the inside the quotes. In the first line we see it should render the `header` template.
 
 Let's take a look at that one:
 
@@ -75,13 +77,13 @@ Let's take a look at that one:
 <!DOCTYPE html>
 <html>
 <head>
-<title>{{ title }}</title>
+<title>{{ .title }}</title>
 </head>
 ```
 
 Pretty basic html, but with some [mustache style](https://github.com/janl/mustache.js/) variable. In this case, there is a special variable `title` that will be replaced with the `title:` that is provided in the frontmatter of the markdown file.
 
-The other special variable in templates is `content`, which can be specified in the same way: `{{ content }}`. This will render out the html version of the markdown.
+The other special variable in templates is `content`, which can be specified in the same way: `{{ .content }}`. This will render out the html version of the markdown.
 
 You can compose templates as you like, and even nest them recursively in order to compose html pages from reusable fragments.
 

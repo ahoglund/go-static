@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,37 +87,40 @@ func main() {
 	}
 
 	// move all the assets to the public directory
-	// srcDir := config.assetsDir
-	// dstDir := config.publicDir
-	//
-	// err = processAssets(srcDir, dstDir)
-	// if err != nil {
-	// 	fmt.Fprintf(os.Stderr, "%v\n", err)
-	// 	os.Exit(1)
-	// }
+	srcDir := config.assetsDir
+	dstDir := config.publicDir
+	err = processAssets(srcDir, dstDir)
+	if err != nil {
+		log.Fatalf("Error processing assets: %v", err)
+	}
 }
 
 func processAssets(srcDir string, dstDir string) error {
 	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			// return nil
-			// err := processAssets(info.Name(), dstDir)
-			// if err != nil {
-			// 	return err
-			// }
+		// If walking the file system resulted in an error, return it
+		if err != nil {
+			return err
 		}
 
-		relPath, _ := filepath.Rel(srcDir, path)
+		// Calculate the relative path
+		relPath, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+
+		// Create the destination path
 		dstPath := filepath.Join(dstDir, relPath)
 
-		return copyFile(path, dstPath)
+		if info.IsDir() {
+			// If the item is a directory, create it in the destination
+			return os.MkdirAll(dstPath, info.Mode())
+		} else {
+			// If the item is a file, copy it
+			return copyFile(path, dstPath)
+		}
 	})
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func processPage(file string, ts *template.Template, config *Config) {

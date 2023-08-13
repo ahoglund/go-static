@@ -179,11 +179,6 @@ func processPage(file string, ts *template.Template, config *Config) {
 
 	y["content"] = parsedPageBuf.String()
 
-	// templateData := map[string]string{
-	// 	"title":   y["title"].(string),
-	// 	"content": y["content"].(string),
-	// }
-
 	var parsedTemplateBuf bytes.Buffer
 	err = ts.ExecuteTemplate(&parsedTemplateBuf, y["template"].(string), y)
 	if err != nil {
@@ -191,8 +186,7 @@ func processPage(file string, ts *template.Template, config *Config) {
 		os.Exit(1)
 	}
 
-	fileName := strings.ReplaceAll(file, config.pagesDir, "")
-	err = writeTemplate(fileName, parsedTemplateBuf.String(), config)
+	err = writeTemplate(strings.TrimPrefix(file, "pages/"), parsedTemplateBuf.String(), config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

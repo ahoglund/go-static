@@ -9,9 +9,16 @@ go-static is a static site generator written in Go that converts markdown files 
 ## Build and Run Commands
 
 - **Build**: `go build -o go-static ./cmd/go-static`
-- **Run**: `./go-static <target-directory>` (where target-directory contains pages/, templates/, and optionally assets/ folders)
-- **Example**: `./go-static example/` (uses the provided example site)
-- **Test with example**: `go run ./cmd/go-static example/` (builds the example site to example/public/)
+- **Commands Available**:
+  - `./go-static init [directory]` - Initialize new site with templates
+  - `./go-static build [directory]` - Build static site (default: current directory)
+  - `./go-static serve [directory]` - Serve built site locally
+  - `./go-static version` - Show version information
+- **Flags**: 
+  - `--verbose, -v` - Verbose output (global)
+  - `--output, -o` - Custom output directory (build)
+  - `--port, -p` - Custom port (serve, default: 8080)
+- **Example**: `./go-static build example/` (builds the example site)
 
 ## Architecture
 

@@ -12,7 +12,7 @@ var versionCmd = &cobra.Command{
 	Short: "Print version information",
 	Long:  "Print version information for go-static",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("go-static version %s\n", version)
+		fmt.Printf("go-static version %s\n", Version)
 		fmt.Printf("Built with %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	},
 }

@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	version = "dev"
+	Version = "dev"  // Can be set via build ldflags
 	verbose bool
 )
 

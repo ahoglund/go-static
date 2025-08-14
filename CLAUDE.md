@@ -40,7 +40,10 @@ go-static is a static site generator written in Go that converts markdown files 
    - Convert markdown to HTML using `github.com/gomarkdown/markdown`
    - Execute template with frontmatter data and content
    - Write HTML output to `public/` directory
-3. Copy assets from `assets/` to `public/` preserving directory structure
+3. Process assets from `assets/` to `public/`:
+   - CSS files are processed with esbuild (bundling, minification)
+   - Tailwind CSS directives are processed
+   - Other assets are copied preserving directory structure
 
 ### File Type Support
 
@@ -60,7 +63,16 @@ Uses Go's `text/template` package with template composition:
 
 - `github.com/gomarkdown/markdown`: Markdown to HTML conversion
 - `gopkg.in/yaml.v3`: YAML frontmatter parsing
+- `github.com/spf13/cobra`: CLI framework
+- `github.com/evanw/esbuild`: CSS processing and minification
 - Go 1.19+ required
+
+## CSS Processing
+
+- **Tailwind CSS Support**: Sites are scaffolded with Tailwind CSS by default
+- **Automatic Processing**: CSS files are automatically bundled and minified
+- **Modern Approach**: Uses esbuild for fast CSS processing
+- **Custom Components**: Includes custom Tailwind components for typography
 
 ## Directory Structure Conventions
 

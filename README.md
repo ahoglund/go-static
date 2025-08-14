@@ -1,93 +1,265 @@
 # go-static
-Just another static site generator. Written in Go.
 
-## Description
+A fast, opinionated static site generator written in Go with built-in Tailwind CSS support.
 
-A simple command line application that will build out static html files from a combination of configuration files, html templates, and markdown content files.
+## Features
 
-## Usage
+- **Fast Builds**: Efficient static site generation
+- **Tailwind CSS**: Professional styling out of the box
+- **Go Templates**: Powerful templating system with partials
+- **Asset Processing**: Automatic CSS bundling and minification  
+- **Development Server**: Built-in server for local development
+- **CLI Interface**: Modern command-line interface with Cobra
+- **Cross-Platform**: Works on Linux, macOS, and Windows
 
-This program makes a few assumed conventions about the file structure of your website. Based on these conventions, go-static will parse and build static artifacts.
+## Installation
 
-Give the following file structure:
+### Method 1: Go Install (Recommended)
+
+If you have Go 1.19+ installed:
+
+```bash
+go install github.com/ahoglund/go-static@latest
+```
+
+This will install `go-static` to your `$GOPATH/bin` directory.
+
+### Method 2: Download Pre-built Binary
+
+1. Go to the [Releases page](https://github.com/ahoglund/go-static/releases)
+2. Download the appropriate binary for your platform
+3. Extract and place in your PATH
+
+### Method 3: Build from Source
+
+```bash
+git clone https://github.com/ahoglund/go-static.git
+cd go-static
+make build
+# Binary will be in ./bin/go-static
+```
+
+### Method 4: Homebrew (Coming Soon)
+
+```bash
+# Coming soon
+brew install go-static
+```
+
+## Quick Start
+
+```bash
+# Create a new site
+go-static init my-site
+
+# Build the site  
+go-static build my-site
+
+# Serve locally (http://localhost:8080)
+go-static serve my-site
+```
+
+## Commands
+
+- `go-static init [directory]` - Initialize a new site with Tailwind CSS
+- `go-static build [directory]` - Build the static site
+- `go-static serve [directory]` - Serve the site locally
+- `go-static version` - Show version information
+
+### Flags
+
+- `--verbose, -v` - Verbose output
+- `--output, -o` - Custom output directory (build)  
+- `--port, -p` - Custom port (serve, default: 8080)
+- `--host` - Custom host (serve, default: localhost)
+
+## Project Structure
+
+go-static follows conventions for directory structure:
 
 ```
 .
-├── pages
-│   └── reviews
-│       ├── reviews-01.md
-│       └── reviews-02.md
-└── templates
-    ├── content.tmpl
-    ├── footer.tmpl
-    ├── header.tmpl
-    ├── index.tmpl
-    └── nav.tmpl
+├── pages/          # Markdown and HTML source files
+│   ├── index.md
+│   └── about.md
+├── templates/      # Go template files
+│   ├── header.tmpl
+│   ├── footer.tmpl
+│   ├── nav.tmpl
+│   ├── content.tmpl
+│   └── index.tmpl
+├── assets/         # Static assets (CSS, images, etc.)
+│   └── css/
+│       └── main.css
+└── public/         # Generated output (created by build)
+    ├── index.html
+    ├── about.html
+    └── css/
+        └── main.css
 ```
 
-go-static will write out files to the `public` folder in the same directory as follows:
+## Content Files
 
-```
-├── public
-│   └── reviews
-│       ├── reviews-01.html
-│       └── reviews-02.html
-```
+### Markdown with Frontmatter
 
-If we inspect the contents of one of the review markdown files, we get an idea of how this happens:
+Create `.md` files in the `pages/` directory with YAML frontmatter:
 
-```
+```markdown
 ---
-title: Review 01
+title: My Page Title
+template: index
 ---
 
-This is markdown and should be rendered into the `content` variable in the template.
+# My Content
 
-## This is a header
+This is **markdown** content that will be converted to HTML.
 
+- List item 1
+- List item 2
 
-**this is bold**
-
-
-- this
-- is
-- a
-- list
+[Link to another page](/about.html)
 ```
 
-This is just a basic markdown with [frontmatter](https://markdoc.dev/docs/frontmatter) to provide configuration metadata. The `title` key is required. You can also pass it a `template` key to specify which template in the template directory you want this markdown file to use. If none is given, it defaults to `index`.
+### Supported Frontmatter Fields
 
+- `title` (required): Page title
+- `template` (optional): Template to use (defaults to "index")
 
-Lets take a look at a template file:
+## Templates
 
-```
-{{ define "index" }}
-{{ template "header" . }}
-{{ template "nav" . }}
-{{ template "content" . }}
-{{ template "footer" . }}
-{{ end }}
-```
+Templates use Go's `text/template` syntax with custom components:
 
-The `template` denotes that this `{{ }}` section should replaced with a template with the name on the inside the quotes. In the first line we see it should render the `header` template.
-
-Let's take a look at that one:
-
-```
-<!DOCTYPE html>
-<html>
-<head>
-<title>{{ .title }}</title>
-</head>
+```html
+{{define "index"}}
+{{template "header" .}}
+{{template "nav" .}}
+{{template "content" .}}
+{{template "footer" .}}
+{{end}}
 ```
 
-Pretty basic html, but with some [mustache style](https://github.com/janl/mustache.js/) variable. In this case, there is a special variable `title` that will be replaced with the `title:` that is provided in the frontmatter of the markdown file.
+### Available Variables
 
-The other special variable in templates is `content`, which can be specified in the same way: `{{ .content }}`. This will render out the html version of the markdown.
+- `{{.title}}` - Page title from frontmatter
+- `{{.content}}` - Processed markdown content
+- Any custom frontmatter fields
 
-You can compose templates as you like, and even nest them recursively in order to compose html pages from reusable fragments.
+## CSS and Styling
+
+go-static includes **Tailwind CSS** by default:
+
+- Sites are scaffolded with a complete Tailwind setup
+- CSS files are automatically processed and minified
+- Custom Tailwind components for typography
+- CDN version included for immediate styling
+
+### Custom CSS
+
+Add custom CSS to `assets/css/main.css`:
+
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Your custom styles */
+.my-custom-class {
+    @apply text-blue-600 hover:text-blue-800;
+}
+```
+
+## Development
+
+### Local Development
+
+```bash
+# Start development server
+go-static serve my-site --port 3000
+
+# Build with verbose output
+go-static build my-site --verbose
+
+# Build to custom directory
+go-static build my-site --output dist
+```
+
+### Building
+
+```bash
+# Development build
+make build
+
+# Cross-platform builds
+make build-all
+
+# Install locally
+make install
+```
+
+## Examples
+
+### Basic Blog
+
+```bash
+go-static init my-blog
+cd my-blog
+
+# Add a blog post
+cat > pages/first-post.md << EOF
+---
+title: My First Post
+---
+
+# Hello World
+
+This is my first blog post!
+EOF
+
+# Build and serve
+go-static build
+go-static serve
+```
+
+### Custom Template
+
+Create a custom template in `templates/post.tmpl`:
+
+```html
+{{define "post"}}
+{{template "header" .}}
+<article class="prose prose-lg mx-auto">
+    <h1>{{.title}}</h1>
+    <div class="text-gray-600">{{.date}}</div>
+    {{.content}}
+</article>
+{{template "footer" .}}
+{{end}}
+```
+
+Use in frontmatter:
+
+```markdown
+---
+title: My Post
+template: post
+date: 2024-01-15
+---
+
+Content here...
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 
-This project is in _very early_ development stage and has lots of features missing and problem some bugs as well. Feel free to open an issue/pull request if you'd like to contribute or make suggestions for improvement.
-
+This project is in active development. Features and APIs may change. Please check the [releases page](https://github.com/ahoglund/go-static/releases) for stable versions.

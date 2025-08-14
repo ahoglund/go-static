@@ -85,7 +85,7 @@ Output will be generated in the public/ directory.`,
 			return fmt.Errorf("page processing error: %w", err)
 		}
 
-		err = processor.ProcessAssets(cfg.AssetsDir, cfg.PublicDir)
+		err = processor.ProcessAssets(cfg.AssetsDir, cfg.PublicDir, verbose)
 		if err != nil {
 			if verbose {
 				log.Printf("Asset processing warning: %v", err)

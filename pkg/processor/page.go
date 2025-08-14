@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/ahoglund/go-static/pkg/assets"
 	"github.com/ahoglund/go-static/pkg/config"
 	"github.com/gomarkdown/markdown"
 	"gopkg.in/yaml.v3"
@@ -111,7 +112,9 @@ func (p *PageProcessor) writeTemplate(name string, content string) error {
 	return nil
 }
 
-func ProcessAssets(srcDir string, dstDir string) error {
+func ProcessAssets(srcDir string, dstDir string, verbose bool) error {
+	cssProcessor := assets.NewCSSProcessor(srcDir, dstDir, verbose)
+	
 	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -126,9 +129,13 @@ func ProcessAssets(srcDir string, dstDir string) error {
 
 		if info.IsDir() {
 			return os.MkdirAll(dstPath, info.Mode())
-		} else {
-			return copyFile(path, dstPath)
 		}
+
+		if strings.HasSuffix(path, ".css") {
+			return cssProcessor.ProcessTailwind(path, dstPath)
+		}
+
+		return copyFile(path, dstPath)
 	})
 
 	return err

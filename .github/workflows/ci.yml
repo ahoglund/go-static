@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.19'
+
+    - name: Build
+      run: go build -v .
+
+    - name: Test
+      run: go test -v ./...
+
+    - name: Test CLI functionality
+      run: |
+        # Build the binary
+        go build -o go-static .
+        
+        # Test init command
+        ./go-static init test-site
+        
+        # Test build command
+        ./go-static build test-site
+        
+        # Verify output
+        test -f test-site/public/index.html
+        test -f test-site/public/about.html
+        test -f test-site/public/css/main.css
+        
+        echo "CLI tests passed!"
+
+  build-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.19'
+
+    - name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+      run: |
+        GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -v .
+      env:
+        CGO_ENABLED: 0

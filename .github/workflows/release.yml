@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.19'
+
+    - name: Get version
+      id: version
+      run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Build binaries
+      run: |
+        VERSION=${{ steps.version.outputs.version }}
+        COMMIT=$(git rev-parse --short HEAD)
+        BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        
+        mkdir -p dist
+        
+        # Build for multiple platforms
+        PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64"
+        
+        for PLATFORM in $PLATFORMS; do
+          GOOS=${PLATFORM%/*}
+          GOARCH=${PLATFORM#*/}
+          
+          OUTPUT_NAME="go-static-${VERSION}-${GOOS}-${GOARCH}"
+          if [ "$GOOS" = "windows" ]; then
+            OUTPUT_NAME="${OUTPUT_NAME}.exe"
+          fi
+          
+          echo "Building for $GOOS/$GOARCH..."
+          GOOS=$GOOS GOARCH=$GOARCH go build \
+            -ldflags "-X github.com/ahoglund/go-static/cmd/go-static/commands.Version=${VERSION} -X main.GitCommit=${COMMIT} -X main.BuildDate=${BUILD_DATE}" \
+            -o "dist/${OUTPUT_NAME}" .
+        done
+
+    - name: Create checksums
+      run: |
+        cd dist
+        sha256sum * > checksums.txt
+
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*
+        body: |
+          ## Changes
+          
+          See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
+          
+          ## Installation
+          
+          ### Download Binary
+          
+          Download the appropriate binary for your platform from the assets below.
+          
+          ### Go Install
+          
+          ```bash
+          go install github.com/ahoglund/go-static@${{ steps.version.outputs.version }}
+          ```
+          
+          ### Homebrew (macOS/Linux)
+          
+          ```bash
+          # Coming soon
+          ```
+          
+          ## Usage
+          
+          ```bash
+          go-static init my-site
+          go-static build my-site
+          go-static serve my-site
+          ```
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

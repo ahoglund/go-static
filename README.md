@@ -48,6 +48,8 @@ brew install go-static
 
 ## Quick Start
 
+### Local Development
+
 ```bash
 # Create a new site
 go-static init my-site
@@ -59,6 +61,24 @@ go-static build my-site
 go-static serve my-site
 ```
 
+### GitHub Pages Deployment
+
+```bash
+# Create a site optimized for GitHub Pages
+go-static init my-site --github-pages
+
+# Follow the setup instructions to deploy
+cd my-site
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin https://github.com/username/my-site.git
+git push -u origin main
+
+# Enable GitHub Pages in repository settings
+```
+
 ## Commands
 
 - `go-static init [directory]` - Initialize a new site with Tailwind CSS
@@ -68,10 +88,18 @@ go-static serve my-site
 
 ### Flags
 
+**Global:**
 - `--verbose, -v` - Verbose output
-- `--output, -o` - Custom output directory (build)  
-- `--port, -p` - Custom port (serve, default: 8080)
-- `--host` - Custom host (serve, default: localhost)
+
+**Init:**
+- `--github-pages` - Setup GitHub Pages deployment (adds .gitignore, workflow, README)
+
+**Build:**
+- `--output, -o` - Custom output directory (default: ./public)
+
+**Serve:**
+- `--port, -p` - Custom port (default: 8080)
+- `--host` - Custom host (default: localhost)
 
 ## Project Structure
 
@@ -152,6 +180,34 @@ go-static includes **Tailwind CSS** by default:
 - CSS files are automatically processed and minified
 - Custom Tailwind components for typography
 - CDN version included for immediate styling
+
+## GitHub Pages Deployment
+
+go-static includes first-class support for GitHub Pages deployment.
+
+### Automatic Setup
+
+```bash
+go-static init my-site --github-pages
+```
+
+This creates:
+- **`.gitignore`** - Ignores `public/` directory and common development files
+- **`.github/workflows/deploy.yml`** - GitHub Actions workflow for automatic deployment
+- **`README.md`** - Documentation for your repository
+
+### Deployment Process
+
+1. **Create Repository**: Push your site to a GitHub repository
+2. **Enable Pages**: Go to repository Settings → Pages → Source: "GitHub Actions"
+3. **Auto-Deploy**: Every push to `main` branch automatically rebuilds and deploys your site
+
+### Workflow Features
+
+- **Fast Builds**: Uses latest go-static version
+- **Automatic Deployment**: No manual intervention needed
+- **Branch Protection**: Only deploys from `main` branch
+- **Artifact Caching**: Efficient build process
 
 ### Custom CSS
 

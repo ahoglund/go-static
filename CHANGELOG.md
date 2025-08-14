@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version management with build-time injection
 - GitHub Actions for CI/CD and releases
 - Makefile for build automation
+- **GitHub Pages integration** with `--github-pages` flag
+  - Automatic .gitignore generation
+  - GitHub Actions workflow for deployment
+  - Repository README template
 
 ### Changed
 

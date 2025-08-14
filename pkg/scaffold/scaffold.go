@@ -12,6 +12,9 @@ import (
 //go:embed templates/site/*
 var siteTemplates embed.FS
 
+//go:embed templates/github/*
+var githubTemplates embed.FS
+
 type Scaffolder struct {
 	verbose bool
 }
@@ -75,6 +78,42 @@ func (s *Scaffolder) CreateDirectories(targetDir string) error {
 		}
 		if s.verbose {
 			fmt.Printf("Created directory: %s\n", dir)
+		}
+	}
+
+	return nil
+}
+
+func (s *Scaffolder) CreateGitHubPages(targetDir string) error {
+	if s.verbose {
+		fmt.Printf("Setting up GitHub Pages files in: %s\n", targetDir)
+	}
+
+	gitHubFiles := map[string]string{
+		".gitignore":                     "templates/github/.gitignore",
+		".github/workflows/deploy.yml":  "templates/github/.github/workflows/deploy.yml", 
+		"README.md":                     "templates/github/README.md",
+	}
+
+	for targetPath, templatePath := range gitHubFiles {
+		fullTargetPath := filepath.Join(targetDir, targetPath)
+		
+		// Create directory if needed
+		if err := os.MkdirAll(filepath.Dir(fullTargetPath), 0755); err != nil {
+			return fmt.Errorf("failed to create directory for %s: %w", fullTargetPath, err)
+		}
+
+		content, err := githubTemplates.ReadFile(templatePath)
+		if err != nil {
+			return fmt.Errorf("failed to read template file %s: %w", templatePath, err)
+		}
+
+		if err := os.WriteFile(fullTargetPath, content, 0644); err != nil {
+			return fmt.Errorf("failed to create file %s: %w", fullTargetPath, err)
+		}
+
+		if s.verbose {
+			fmt.Printf("Created GitHub Pages file: %s\n", fullTargetPath)
 		}
 	}
 

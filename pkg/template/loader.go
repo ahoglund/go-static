@@ -31,7 +31,7 @@ func (t *TemplateLoader) LoadTemplates() (*template.Template, error) {
 			return nil
 		}
 
-		templateFiles = append(templateFiles, t.config.TemplateDir+"/"+info.Name())
+		templateFiles = append(templateFiles, path)
 		return nil
 	})
 	

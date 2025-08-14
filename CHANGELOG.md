@@ -32,8 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Template loading for nested directory structures
 - Path handling for cross-platform compatibility
 - Asset processing pipeline reliability
+- Page output paths when building from within site directory (pages now correctly output to public root, not public/pages/)
 
-## [0.1.0] - 2024-XX-XX
+## [0.1.0] - 2025-08-13
 
 ### Added
 
@@ -42,4 +43,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Go template system support
 - Simple asset copying
 - Directory structure conventions
-

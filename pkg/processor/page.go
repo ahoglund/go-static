@@ -82,7 +82,10 @@ func (p *PageProcessor) ProcessPage(file string) error {
 		return fmt.Errorf("error executing template: %w", err)
 	}
 
-	relativePath := strings.TrimPrefix(file, p.config.PagesDir+"/")
+	relativePath, err := filepath.Rel(p.config.PagesDir, file)
+	if err != nil {
+		return fmt.Errorf("failed to get relative path: %w", err)
+	}
 	err = p.writeTemplate(relativePath, parsedTemplateBuf.String())
 	if err != nil {
 		return fmt.Errorf("error writing template: %w", err)

@@ -47,3 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Go template system support
 - Simple asset copying
 - Directory structure conventions
+
+## 0.1.1
+
+- bug fixes
+
+## 0.1.1
+
+- add github-pages support
